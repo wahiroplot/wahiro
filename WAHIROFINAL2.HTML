@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wahiro - v36.1 MULTI-ITEM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f5f9; color: #1e293b; margin: 0; }
+        .babylon-font { font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 4px; color: white; text-transform: uppercase; }
+        .sidebar-dark { background: #000000; color: white; }
+        .nav-btn { width: calc(100% - 2rem); margin: 0.25rem 1rem; padding: 1rem 1.5rem; border-radius: 12px; display: flex; align-items: center; gap: 1rem; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #64748b; transition: all 0.2s; border: none; cursor: pointer; }
+        .nav-btn.active { background: #1e293b; color: white; box-shadow: inset 4px 0 0 white; }
+        .btn-industrial { background: white; color: black; font-weight: 900; text-transform: uppercase; clip-path: polygon(0% 15%, 15% 0%, 100% 0%, 100% 85%, 85% 100%, 0% 100%); }
+        .missing-input-ui { border-left: 12px solid #f43f5e !important; background: #fff1f2 !important; }
+        .express-ui { border: 4px solid #facc15 !important; background: #fffbeb !important; position: relative; }
+        .express-badge { position: absolute; top: -12px; left: 20px; background: #facc15; color: black; padding: 4px 12px; border-radius: 8px; font-size: 10px; font-weight: 900; }
+        .id-badge { background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+        .stat-card { cursor: pointer; transition: transform 0.2s; }
+        .stat-card:hover { transform: scale(1.02); }
+        #search-results { max-height: 250px; overflow-y: auto; z-index: 100; display: none; }
+        .search-item { padding: 1.25rem; cursor: pointer; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; font-weight: 800; }
+        .search-item:hover { background: #f8fafc; color: #000; padding-left: 2rem; }
+        .item-row { background: #f8fafc; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="main-ui" class="min-h-screen flex flex-col md:flex-row no-print">
+        <aside class="w-full md:w-72 sidebar-dark flex flex-col shrink-0">
+            <div class="p-10 text-center border-b border-white/5">
+                <h1 class="babylon-font text-2xl">Wahiro</h1>
+                <p class="text-[8px] tracking-[0.3em] text-slate-500 font-bold mt-2 uppercase">Producción y Control</p>
+            </div>
+            <nav class="flex-1 mt-6">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="nav-btn active"><i class="fas fa-chart-pie"></i> Dashboard</button>
+                <button onclick="switchTab('orders')" id="btn-orders" class="nav-btn"><i class="fas fa-layer-group"></i> Línea de Trabajo</button>
+                <button onclick="switchTab('ready')" id="btn-ready" class="nav-btn text-emerald-500"><i class="fas fa-check-double"></i> Pedidos Listos</button>
+                <button onclick="switchTab('finalized')" id="btn-finalized" class="nav-btn text-blue-400"><i class="fas fa-archive"></i> Finalizados</button>
+                <button onclick="switchTab('shopping')" id="btn-shopping" class="nav-btn text-orange-400"><i class="fas fa-shopping-cart"></i> Lista de Compras</button>
+                <button onclick="switchTab('catalog')" id="btn-catalog" class="nav-btn"><i class="fas fa-book"></i> Catálogo</button>
+            </nav>
+            <div class="p-6">
+                <button onclick="openNormalModal()" class="w-full btn-industrial py-5 flex items-center justify-center gap-2 text-xs"><i class="fas fa-plus"></i> Nueva Orden</button>
+            </div>
+        </aside>
+
+        <main class="flex-1 p-6 md:p-12 overflow-y-auto">
+            <div id="view-dashboard">
+                <h2 class="text-4xl font-black text-slate-900 uppercase italic mb-10 tracking-tighter">Estado de Entregas</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                    <div onclick="filterByDashboard('today')" class="stat-card bg-white p-10 rounded-[2.5rem] border-l-[12px] border-red-500 shadow-sm">
+                        <p class="text-[10px] font-black text-red-600 uppercase tracking-widest">Hoy / Vencidos</p>
+                        <p id="stat-today" class="text-7xl font-black mt-2 text-red-600">0</p>
+                    </div>
+                    <div onclick="filterByDashboard('tomorrow')" class="stat-card bg-white p-10 rounded-[2.5rem] border-l-[12px] border-amber-500 shadow-sm">
+                        <p class="text-[10px] font-black text-amber-600 uppercase tracking-widest">Entrega Mañana</p>
+                        <p id="stat-tomorrow" class="text-7xl font-black mt-2 text-amber-500">0</p>
+                    </div>
+                    <div onclick="filterByDashboard('upcoming')" class="stat-card bg-white p-10 rounded-[2.5rem] border-l-[12px] border-slate-300 shadow-sm">
+                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Próximos Días</p>
+                        <p id="stat-upcoming" class="text-7xl font-black mt-2 text-slate-400">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-orders" class="hidden">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+                    <h2 class="text-4xl font-black text-slate-900 uppercase italic tracking-tighter">Línea de Trabajo</h2>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <div class="relative flex-1 md:w-80">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="global-search" oninput="renderOrders()" placeholder="BUSCADOR MAESTRO (ID O CLIENTE)..." class="w-full pl-10 pr-4 py-3 bg-white border rounded-xl font-bold text-xs outline-none focus:ring-2 ring-black shadow-sm">
+                        </div>
+                        <button id="clear-filter" onclick="resetOrderFilter()" class="hidden bg-red-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase italic">Ver Todos</button>
+                    </div>
+                </div>
+                <div id="orders-container" class="space-y-6"></div>
+            </div>
+
+            <div id="view-catalog" class="hidden">
+                <h2 class="text-4xl font-black uppercase italic mb-10 tracking-tighter">Catálogo</h2>
+                <div class="bg-white p-8 rounded-[2.5rem] border shadow-sm mb-8">
+                    <input type="hidden" id="cat-id-edit">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <input type="text" id="cat-name" placeholder="Producto" class="p-4 bg-slate-50 border rounded-xl font-bold">
+                        <input type="number" id="cat-price" placeholder="Precio" class="p-4 bg-slate-50 border rounded-xl font-bold">
+                        <select id="cat-unit" class="p-4 bg-slate-50 border rounded-xl font-black uppercase text-[10px]">
+                            <option value="unit">Por Unidad</option>
+                            <option value="m2">Por Metro Cuadrado (M²)</option>
+                        </select>
+                        <button onclick="saveToCatalog()" id="btn-cat-save" class="bg-black text-white rounded-xl font-black uppercase text-xs">Agregar</button>
+                    </div>
+                </div>
+                <div id="catalog-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+
+            <div id="view-shopping" class="hidden">
+                <h2 class="text-4xl font-black text-orange-500 uppercase italic mb-10 tracking-tighter">Lista de Compras</h2>
+                <div id="shopping-list-container" class="space-y-4"></div>
+            </div>
+
+            <div id="view-ready" class="hidden">
+                <h2 class="text-4xl font-black text-emerald-600 uppercase italic mb-10 tracking-tighter">Pedidos Listos</h2>
+                <div id="ready-orders-container" class="space-y-6"></div>
+            </div>
+
+            <div id="view-finalized" class="hidden">
+                <h2 class="text-4xl font-black text-blue-500 uppercase italic mb-10 tracking-tighter">Pedidos Finalizados</h2>
+                <div id="finalized-orders-container" class="space-y-6"></div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal" class="fixed inset-0 bg-black/95 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-5xl rounded-[4rem] p-12 overflow-y-auto max-h-[92vh]">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="text-4xl font-black uppercase italic tracking-tighter">Nueva Orden</h3>
+                    <label class="flex items-center gap-3 mt-4 cursor-pointer bg-yellow-400 px-6 py-3 rounded-2xl w-fit">
+                        <input type="checkbox" id="order-express" onchange="calculateMultiTotal()" class="w-6 h-6 accent-black">
+                        <span class="font-black text-xs uppercase tracking-tight">🚀 Pedido Express (+25%)</span>
+                    </label>
+                </div>
+                <button onclick="closeModal()" class="text-slate-200 text-4xl"><i class="fas fa-times-circle"></i></button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <input type="text" id="order-client" placeholder="CLIENTE" class="p-6 bg-slate-50 border rounded-2xl font-black uppercase outline-none">
+                <input type="text" id="order-phone" placeholder="WHATSAPP" class="p-6 bg-slate-50 border rounded-2xl font-black outline-none">
+            </div>
+
+            <div class="bg-slate-100 p-6 rounded-[2rem] mb-8">
+                <p class="text-[10px] font-black uppercase mb-4 opacity-50">Agregar Producto al Pedido</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 relative mb-4">
+                    <div class="md:col-span-1 relative">
+                        <input type="text" id="order-product-input" oninput="filterSearch()" placeholder="BUSCAR PRODUCTO..." class="w-full p-4 bg-white border rounded-xl font-black uppercase outline-none text-sm">
+                        <div id="search-results" class="absolute top-full left-0 right-0 bg-white border shadow-2xl rounded-xl mt-1 font-bold uppercase text-xs"></div>
+                    </div>
+                    <div id="m2-inputs" class="hidden flex gap-2">
+                        <input type="number" id="order-width" placeholder="Ancho" oninput="calculateM2()" class="w-1/2 p-4 bg-blue-50 border border-blue-200 rounded-xl font-black outline-none text-center text-xs">
+                        <input type="number" id="order-height" placeholder="Alto" oninput="calculateM2()" class="w-1/2 p-4 bg-blue-50 border border-blue-200 rounded-xl font-black outline-none text-center text-xs">
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="number" id="order-qty" placeholder="CANT." value="1" class="w-1/3 p-4 bg-white border rounded-xl font-black outline-none text-center text-sm">
+                        <button onclick="addItemToList()" class="flex-1 bg-emerald-500 text-white rounded-xl font-black uppercase text-xs shadow-lg hover:bg-emerald-600 transition-colors">Añadir ítem</button>
+                    </div>
+                </div>
+                <div id="items-list" class="max-h-40 overflow-y-auto"></div>
+            </div>
+
+            <div class="mb-8">
+                <p class="text-[10px] font-black uppercase mb-2 opacity-50">Especificaciones y Notas</p>
+                <textarea id="order-notes" rows="3" placeholder="Detalles específicos, colores, terminaciones..." class="w-full p-6 bg-slate-50 border rounded-2xl font-bold outline-none resize-none"></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div>
+                    <p class="text-[10px] font-black uppercase mb-2 opacity-50">Fecha de Entrega</p>
+                    <input type="date" id="order-delivery" class="w-full p-6 bg-slate-50 border rounded-2xl font-black outline-none">
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase mb-2 opacity-50">Total Automático $</p>
+                    <input type="number" id="order-total" placeholder="TOTAL $" class="w-full p-6 bg-slate-200 border rounded-2xl font-black outline-none" readonly>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase mb-2 opacity-50">Seña $</p>
+                    <input type="number" id="order-deposit" placeholder="SEÑA $" class="w-full p-6 bg-emerald-50 border border-emerald-100 rounded-2xl font-black outline-none">
+                </div>
+            </div>
+            <button onclick="confirmOrder()" class="w-full bg-black text-white py-8 rounded-[2rem] font-black uppercase tracking-widest text-xl shadow-2xl">Confirmar Pedido</button>
+        </div>
+    </div>
+
+    <div id="detail-modal" class="fixed inset-0 bg-black/95 z-[110] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-2xl rounded-[3rem] p-10 overflow-y-auto max-h-[90vh]"><div id="detail-content"></div><button onclick="closeDetail()" class="w-full mt-8 py-5 bg-black text-white rounded-2xl font-black uppercase">Cerrar Detalle</button></div>
+    </div>
+
+    <div id="missing-input-modal" class="fixed inset-0 bg-black/95 z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl"><h3 class="text-2xl font-black uppercase italic mb-6">Reportar Insumo</h3><div class="space-y-4"><input type="text" id="missing-name" placeholder="¿Qué falta?" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold"><input type="text" id="missing-qty" placeholder="Cantidad" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold"></div><button onclick="saveMissingInput()" class="w-full mt-6 py-5 bg-black text-white rounded-2xl font-black uppercase">Guardar</button></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyAOrlX3-QgqTwW3ROqkT7DhRBETFIifmZM", authDomain: "wahiro-app.firebaseapp.com", databaseURL: "https://wahiro-app-default-rtdb.firebaseio.com", projectId: "wahiro-app" };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        window.orders = []; window.catalog = []; let activeDashboardFilter = null; let currentMissingOrderId = null; 
+        let selectedProduct = null; let currentOrderItems = [];
+
+        onValue(ref(db, 'catalog'), snap => { window.catalog = snap.val() ? Object.keys(snap.val()).map(id => ({id, ...snap.val()[id]})) : []; renderCatalog(); });
+        onValue(ref(db, 'orders'), snap => { window.orders = snap.val() ? Object.keys(snap.val()).map(id => ({id, ...snap.val()[id]})) : []; updateDashboardStats(); renderOrders(); renderShoppingList(); });
+
+        window.saveToCatalog = () => {
+            const idEdit = document.getElementById('cat-id-edit').value;
+            const name = document.getElementById('cat-name').value;
+            const price = parseFloat(document.getElementById('cat-price').value);
+            const unit = document.getElementById('cat-unit').value;
+            if(name && price) {
+                if(idEdit) { update(ref(db, `catalog/${idEdit}`), { name, price, unit }); document.getElementById('cat-id-edit').value = ""; document.getElementById('btn-cat-save').innerText = "Agregar"; }
+                else { push(ref(db, 'catalog'), { name, price, unit }); }
+                document.getElementById('cat-name').value = ""; document.getElementById('cat-price').value = "";
+            }
+        };
+
+        window.editCatalogItem = (id, name, price, unit) => { 
+            document.getElementById('cat-id-edit').value = id; 
+            document.getElementById('cat-name').value = name; 
+            document.getElementById('cat-price').value = price; 
+            document.getElementById('cat-unit').value = unit || 'unit';
+            document.getElementById('btn-cat-save').innerText = "Guardar Cambios"; 
+        };
+        window.deleteFromCatalog = (id) => remove(ref(db, `catalog/${id}`));
+
+        window.renderCatalog = () => {
+            document.getElementById('catalog-list').innerHTML = window.catalog.map(p => `<div class="bg-white p-6 border rounded-2xl flex justify-between items-center"><div><p class="font-black uppercase italic">${p.name}</p><p class="text-emerald-500 font-bold">$${p.price} / ${p.unit === 'm2' ? 'M²' : 'Unid.'}</p></div><div class="flex gap-3"><button onclick="editCatalogItem('${p.id}', '${p.name}', ${p.price}, '${p.unit}')" class="text-slate-400 p-2 hover:text-black"><i class="fas fa-edit"></i></button><button onclick="deleteFromCatalog('${p.id}')" class="text-red-400 p-2 hover:text-red-600"><i class="fas fa-trash"></i></button></div></div>`).join('');
+        };
+
+        window.filterSearch = () => {
+            const query = document.getElementById('order-product-input').value.toLowerCase();
+            const resultsDiv = document.getElementById('search-results');
+            if(!query) { resultsDiv.style.display = 'none'; return; }
+            const filtered = window.catalog.filter(p => p.name.toLowerCase().includes(query));
+            if(filtered.length > 0) { resultsDiv.innerHTML = filtered.map(p => `<div class="search-item" onclick="selectProduct('${p.id}', '${p.name}', ${p.price}, '${p.unit || 'unit'}')">${p.name} - $${p.price} / ${p.unit === 'm2' ? 'M²' : 'Unid.'}</div>`).join(''); resultsDiv.style.display = 'block'; }
+            else { resultsDiv.style.display = 'none'; }
+        };
+
+        window.selectProduct = (id, name, price, unit) => { 
+            selectedProduct = { id, name, price, unit }; 
+            document.getElementById('order-product-input').value = name.toUpperCase(); 
+            document.getElementById('search-results').style.display = 'none'; 
+            const m2Div = document.getElementById('m2-inputs');
+            if(unit === 'm2') { m2Div.classList.remove('hidden'); } else { m2Div.classList.add('hidden'); }
+        };
+        
+        window.calculateM2 = () => {
+            const w = parseFloat(document.getElementById('order-width').value) || 0;
+            const h = parseFloat(document.getElementById('order-height').value) || 0;
+            if(w > 0 && h > 0) { document.getElementById('order-qty').value = (w * h).toFixed(2); }
+        };
+
+        // LÓGICA MULTI-PRODUCTO
+        window.addItemToList = () => {
+            if(!selectedProduct) return alert("Seleccioná un producto del catálogo");
+            const qty = parseFloat(document.getElementById('order-qty').value) || 1;
+            const subtotal = selectedProduct.price * qty;
+            
+            currentOrderItems.push({
+                name: selectedProduct.name,
+                qty: qty,
+                unit: selectedProduct.unit,
+                price: selectedProduct.price,
+                subtotal: subtotal
+            });
+
+            renderItemList();
+            calculateMultiTotal();
+            
+            // Limpiar inputs de producto
+            document.getElementById('order-product-input').value = "";
+            document.getElementById('order-qty').value = 1;
+            document.getElementById('order-width').value = "";
+            document.getElementById('order-height').value = "";
+            document.getElementById('m2-inputs').classList.add('hidden');
+            selectedProduct = null;
+        };
+
+        window.renderItemList = () => {
+            document.getElementById('items-list').innerHTML = currentOrderItems.map((item, index) => `
+                <div class="item-row">
+                    <div>
+                        <p class="font-black text-xs uppercase">${item.name}</p>
+                        <p class="text-[10px] font-bold text-slate-400">${item.qty}${item.unit==='m2'?'m2':'unid.'} x $${item.price}</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <p class="font-black text-sm">$${Math.round(item.subtotal)}</p>
+                        <button onclick="removeItem(${index})" class="text-red-500"><i class="fas fa-times-circle"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        window.removeItem = (index) => {
+            currentOrderItems.splice(index, 1);
+            renderItemList();
+            calculateMultiTotal();
+        };
+
+        window.calculateMultiTotal = () => {
+            let total = currentOrderItems.reduce((acc, item) => acc + item.subtotal, 0);
+            if(document.getElementById('order-express').checked) { total = total * 1.25; }
+            document.getElementById('order-total').value = Math.round(total);
+        };
+
+        window.openNormalModal = () => { 
+            currentOrderItems = [];
+            renderItemList();
+            ['order-client','order-phone','order-delivery','order-total','order-deposit','order-product-input','order-notes'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('order-qty').value = 1;
+            document.getElementById('order-express').checked = false;
+            document.getElementById('modal').classList.remove('hidden'); 
+        };
+
+        window.closeModal = () => document.getElementById('modal').classList.add('hidden');
+        
+        window.confirmOrder = () => {
+            const client = document.getElementById('order-client').value;
+            const phone = document.getElementById('order-phone').value;
+            const deliveryRaw = document.getElementById('order-delivery').value;
+            const total = parseFloat(document.getElementById('order-total').value) || 0;
+            const deposit = parseFloat(document.getElementById('order-deposit').value) || 0;
+            const notes = document.getElementById('order-notes').value;
+            const isExpress = document.getElementById('order-express').checked;
+            const orderNum = `W-${Math.floor(1000 + Math.random() * 9000)}`;
+            const deliveryFormat = deliveryRaw.split('-').reverse().join('/');
+            
+            if(!client || currentOrderItems.length === 0 || !deliveryRaw) return alert("Faltan datos o productos");
+            
+            // Unir nombres de productos para la vista principal
+            const productSummary = currentOrderItems.map(i => `${i.qty}${i.unit==='m2'?'m2':'x'} ${i.name}`).join(' + ');
+
+            push(ref(db, 'orders'), { 
+                orderId: orderNum, client, product: productSummary, 
+                items: currentOrderItems, notes,
+                phone, delivery: deliveryFormat, total, deposit, 
+                status: 'pending', express: isExpress 
+            });
+
+            if(phone) {
+                const now = new Date();
+                const hour = now.getHours();
+                let greet = (hour >= 6 && hour < 13) ? "Buen día" : (hour >= 13 && hour < 20) ? "Buenas tardes" : "Buenas noches";
+                
+                let itemsMsg = currentOrderItems.map(i => `• ${i.qty}${i.unit==='m2'?'m2':'x'} ${i.name} ($${Math.round(i.subtotal)})`).join('\n');
+                
+                const msg = `*¡HOLA ${client.toUpperCase()}!* 👋 ${greet}. 
+Tu pedido en *WAHIRO* ha sido confirmado.
+
+✅ *DETALLES DE LA ORDEN:*
+---------------------------------------
+📌 *N° de Orden:* ${orderNum}
+🛠️ *Productos:*
+${itemsMsg}
+${notes ? `📝 *Notas:* ${notes}` : ''}
+📅 *Entrega:* ${deliveryFormat}
+${isExpress ? '🚀 *SERVICIO EXPRESS ACTIVADO*' : ''}
+
+💰 *FINANZAS:*
+---------------------------------------
+💵 *Total:* $${total}
+📥 *Seña:* $${deposit}
+📉 *Saldo:* *$${total - deposit}*
+
+_Gracias por confiar en nosotros!_`;
+
+                window.open(`https://web.whatsapp.com/send?phone=${phone.replace(/\D/g, '')}&text=${encodeURIComponent(msg)}`, '_blank');
+            }
+            
+            closeModal();
+        };
+
+        // MANTENER RESTO DE FUNCIONES IGUALES
+        window.sendQueryWhatsApp = (phone, name) => {
+            if(!phone) return alert("No hay teléfono registrado");
+            const now = new Date(); const hour = now.getHours();
+            let greet = (hour >= 6 && hour < 13) ? "Buen día" : (hour >= 13 && hour < 20) ? "Buenas tardes" : "Buenas noches";
+            const msg = `${greet} ${name.toUpperCase()}, ¿cómo estás? Te escribo de Wahiro por tu pedido...`;
+            window.open(`https://web.whatsapp.com/send?phone=${phone.replace(/\D/g, '')}&text=${encodeURIComponent(msg)}`, '_blank');
+        };
+
+        window.updateStatus = (id, s) => {
+            update(ref(db, `orders/${id}`), { status: s });
+            if (s === 'ready') {
+                const o = window.orders.find(ord => ord.id === id);
+                if (o && o.phone) {
+                    const now = new Date(); const hour = now.getHours();
+                    let greet = (hour >= 6 && hour < 13) ? "Buen día" : (hour >= 13 && hour < 20) ? "Buenas tardes" : "Buenas noches";
+                    const msg = `${greet} ${o.client.toUpperCase()}. Tu pedido esta listo para retirar. te esperamos en nuestro local de Avda. 520 e 169 y 170 (local negro) de lunes a viernes de 10.30 a 13.30 y de 16.30 a 20hs. Recordá que no abrimos los sábados. Gracias por confiar en Wahiro`;
+                    window.open(`https://web.whatsapp.com/send?phone=${o.phone.replace(/\D/g, '')}&text=${encodeURIComponent(msg)}`, '_blank');
+                }
+            }
+        };
+
+        const parseDateStr = (str) => { const [d, m, y] = str.split('/'); return new Date(y, m - 1, d); };
+
+        window.renderOrders = () => {
+            const ahora = new Date(); ahora.setHours(0,0,0,0);
+            const query = document.getElementById('global-search').value.toLowerCase();
+            let filtered = [];
+            if (query) {
+                filtered = window.orders.filter(o => o.orderId.toLowerCase().includes(query) || o.client.toLowerCase().includes(query));
+            } else {
+                filtered = window.orders.filter(o => o.status !== 'ready' && o.status !== 'finalized');
+                if (activeDashboardFilter) {
+                    filtered = filtered.filter(o => {
+                        const f = parseDateStr(o.delivery);
+                        if (activeDashboardFilter === 'today') return f <= ahora;
+                        if (activeDashboardFilter === 'tomorrow') { const mDate = new Date(); mDate.setDate(ahora.getDate() + 1); mDate.setHours(0,0,0,0); return f.getTime() === mDate.getTime(); }
+                        if (activeDashboardFilter === 'upcoming') { const mDate = new Date(); mDate.setDate(ahora.getDate() + 1); mDate.setHours(0,0,0,0); return f > mDate; }
+                    });
+                }
+            }
+
+            filtered.sort((a, b) => {
+                const dateA = parseDateStr(a.delivery); const dateB = parseDateStr(b.delivery);
+                if (dateA - dateB !== 0) return dateA - dateB;
+                return (b.express ? 1 : 0) - (a.express ? 1 : 0);
+            });
+
+            const html = (o) => {
+                const saldo = (o.total || 0) - (o.deposit || 0);
+                const isLate = parseDateStr(o.delivery) < ahora;
+                const statusLabel = o.status === 'ready' ? 'LISTO' : o.status === 'finalized' ? 'ENTREGADO' : 'PROCESO';
+                return `
+                <div class="rounded-[2.5rem] border p-6 flex items-center justify-between ${o.express ? 'express-ui shadow-xl' : 'bg-white shadow-sm'} ${o.status==='missing_input'?'missing-input-ui':''}">
+                    ${o.express ? '<div class="express-badge">🚀 PRIORIDAD EXPRESS (+25%)</div>' : ''}
+                    <div>
+                        <div class="flex gap-2 items-center mb-1">
+                            <div class="id-badge"><i class="fas fa-hashtag"></i> ${o.orderId}</div>
+                            ${query ? `<span class="text-[8px] font-black px-2 py-1 rounded bg-slate-800 text-white uppercase">${statusLabel}</span>` : ''}
+                        </div>
+                        <p class="font-black uppercase italic text-lg ${isLate && o.status !== 'ready' && o.status !== 'finalized' ?'text-red-600':''}">${o.client}</p>
+                        <p class="text-[9px] text-slate-400 font-bold uppercase">${o.product} • Saldo: $${saldo} • <span class="${isLate && o.status !== 'ready' && o.status !== 'finalized'?'text-red-500 font-black underline':''}">${o.delivery}</span></p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="sendQueryWhatsApp('${o.phone}', '${o.client}')" class="bg-emerald-100 text-emerald-600 p-4 rounded-xl text-[9px] font-black uppercase"><i class="fab fa-whatsapp"></i></button>
+                        <button onclick="viewOrderDetail('${o.id}')" class="bg-slate-100 p-4 rounded-xl text-[9px] font-black uppercase"><i class="fas fa-eye"></i></button>
+                        <button onclick="openMissingModal('${o.id}')" class="bg-red-50 text-red-500 px-4 py-4 rounded-xl font-black text-[9px] uppercase">Faltante</button>
+                        <select onchange="updateStatus('${o.id}', this.value)" class="bg-slate-100 p-3 rounded-xl text-[9px] font-black uppercase">
+                            <option value="pending" ${o.status==='pending'?'selected':''}>Pendiente</option>
+                            <option value="designing" ${o.status==='designing'?'selected':''}>🎨 Diseño</option>
+                            <option value="printing" ${o.status==='printing'?'selected':''}>🖨️ Impresión</option>
+                            <option value="sewing" ${o.status==='sewing'?'selected':''}>🪡 Costura</option>
+                            <option value="ironwork" ${o.status==='ironwork'?'selected':''}>🔨 Herrería</option>
+                            <option value="ready" ${o.status==='ready'?'selected':''}>Listo ✅</option>
+                            <option value="finalized" ${o.status==='finalized'?'selected':''}>Entregado ✅</option>
+                        </select>
+                    </div>
+                </div>`;
+            };
+            
+            document.getElementById('orders-container').innerHTML = filtered.map(o => html(o)).join('') || '<p class="text-slate-400 font-black italic">No se encontraron pedidos</p>';
+            document.getElementById('ready-orders-container').innerHTML = window.orders.filter(o => o.status === 'ready').map(o => html(o)).join('');
+            document.getElementById('finalized-orders-container').innerHTML = window.orders.filter(o => o.status === 'finalized').map(o => html(o)).join('');
+        };
+
+        window.renderShoppingList = () => {
+            const missings = window.orders.filter(o => o.status === 'missing_input');
+            document.getElementById('shopping-list-container').innerHTML = missings.map(o => `<div class="flex justify-between items-center p-8 bg-white border-l-8 border-red-500 rounded-[2rem] shadow-sm"><div><div class="id-badge">#${o.orderId}</div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">${o.client}</p><p class="text-xl font-black uppercase italic">FALTA: ${o.missingItemName}</p></div><button onclick="updateStatus('${o.id}', 'pending')" class="bg-black text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase">Comprado</button></div>`).join('') || '<p class="text-center text-slate-400 italic">Sin faltantes</p>';
+        };
+
+        window.openMissingModal = (id) => { currentMissingOrderId = id; document.getElementById('missing-input-modal').classList.remove('hidden'); };
+        window.saveMissingInput = () => { const n = document.getElementById('missing-name').value; const q = document.getElementById('missing-qty').value; update(ref(db, `orders/${currentMissingOrderId}`), { status: 'missing_input', missingItemName: n }); document.getElementById('missing-input-modal').classList.add('hidden'); };
+        window.switchTab = (t) => { document.querySelectorAll('main > div').forEach(d => d.classList.add('hidden')); document.getElementById(`view-${t}`).classList.remove('hidden'); document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); document.getElementById(`btn-${t}`).classList.add('active'); };
+        
+        window.viewOrderDetail = (id) => {
+            const o = window.orders.find(ord => ord.id === id);
+            const saldo = (o.total || 0) - (o.deposit || 0);
+            const itemsHtml = o.items ? o.items.map(i => `<div class="flex justify-between text-[11px] border-b border-slate-100 py-1"><span>${i.qty}${i.unit==='m2'?'m2':'x'} ${i.name}</span><span>$${Math.round(i.subtotal)}</span></div>`).join('') : o.product;
+            
+            document.getElementById('detail-content').innerHTML = `
+                <h3 class="text-3xl font-black uppercase italic mb-8">Orden #${o.orderId} ${o.express ? '(EXPRESS)' : ''}</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 font-bold uppercase text-sm">
+                    <div class="space-y-4">
+                        <p><span class="text-slate-400 block text-[10px]">Cliente</span> ${o.client}</p>
+                        <p><span class="text-slate-400 block text-[10px]">Detalle de Productos</span><div class="mt-1">${itemsHtml}</div></p>
+                        ${o.notes ? `<p><span class="text-slate-400 block text-[10px]">Notas</span> ${o.notes}</p>` : ''}
+                        <p><span class="text-slate-400 block text-[10px]">Entrega</span> ${o.delivery}</p>
+                    </div>
+                    <div class="p-8 bg-slate-50 rounded-[2rem] space-y-3">
+                        <p class="flex justify-between"><span>Total:</span> <span>$${o.total || 0}</span></p>
+                        <p class="flex justify-between text-emerald-600 font-black"><span>Seña:</span> <span>$${o.deposit || 0}</span></p>
+                        <hr>
+                        <p class="flex justify-between text-orange-600 text-2xl font-black"><span>Saldo:</span> <span>$${saldo}</span></p>
+                    </div>
+                </div>`;
+            document.getElementById('detail-modal').classList.remove('hidden');
+        };
+
+        window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
+        window.filterByDashboard = (t) => { activeDashboardFilter = t; document.getElementById('clear-filter').classList.remove('hidden'); switchTab('orders'); renderOrders(); };
+        window.resetOrderFilter = () => { activeDashboardFilter = null; document.getElementById('clear-filter').classList.add('hidden'); renderOrders(); };
+
+        window.updateDashboardStats = () => {
+            const ahora = new Date(); ahora.setHours(0,0,0,0);
+            const mañana = new Date(); mañana.setDate(ahora.getDate() + 1); mañana.setHours(0,0,0,0);
+            const stats = { today: 0, tomorrow: 0, upcoming: 0 };
+            window.orders.forEach(o => {
+                if(o.status === 'ready' || o.status === 'finalized') return;
+                const f = parseDateStr(o.delivery);
+                if (f <= ahora) stats.today++; else if (f.getTime() === mañana.getTime()) stats.tomorrow++; else if (f > mañana) stats.upcoming++;
+            });
+            document.getElementById('stat-today').innerText = stats.today;
+            document.getElementById('stat-tomorrow').innerText = stats.tomorrow;
+            document.getElementById('stat-upcoming').innerText = stats.upcoming;
+        };
+    </script>
+</body>
+</html>
