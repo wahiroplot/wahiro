@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unidos de Olmos v35.9 - Definitiva</title>
+    <style>
+        /* Estilos nativos para asegurar que los botones y menús carguen en iOS */
+        body { background-color: #1e3a8a; color: #f3f4f6; font-family: sans-serif; margin: 0; padding-bottom: 80px; }
+        header { background-color: #172554; padding: 15px; border-bottom: 2px solid #1e40af; display: flex; justify-content: space-between; align-items: center; }
+        nav { display: flex; background-color: #172554; border-bottom: 2px solid #1e40af; overflow-x: auto; }
+        nav button { flex: 1; padding: 15px; border: none; background: none; color: #94a3b8; font-weight: bold; cursor: pointer; }
+        nav button.active { color: white; border-bottom: 4px solid #dc2626; }
+        main { padding: 15px; }
+        .contenedor { background-color: #172554; border-radius: 12px; padding: 10px; border: 1px solid #1e40af; }
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 12px; border-bottom: 1px solid #1e40af; }
+        .btn-accion { width: 100%; padding: 15px; background: #2563eb; color: white; border: none; border-radius: 10px; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">v35.9</h1>
+        <label style="font-size: 12px;">Edición: <input type="checkbox" id="modoEdicion" onchange="renderizar()"></label>
+    </header>
+
+    <nav id="menu-nav">
+        <button onclick="cambiarSolapa('general')" id="btn-general" class="active">General</button>
+        <button onclick="cambiarSolapa('nacional')" id="btn-nacional">Nacional</button>
+        <button onclick="cambiarSolapa('amateur')" id="btn-amateur">Amateur</button>
+        <button onclick="cambiarSolapa('cuotas')" id="btn-cuotas">Cuotas</button>
+        <button onclick="cambiarSolapa('entreno')" id="btn-entreno">Entreno</button>
+    </nav>
+
+    <main>
+        <div class="contenedor">
+            <table id="listaJugadores"></table>
+        </div>
+        <div id="area-botones"></div>
+    </main>
+
+    <script>
+        let solapaActual = 'general', jugadores = JSON.parse(localStorage.getItem('plantel')) || [], eventoActivo = JSON.parse(localStorage.getItem('eventoActivo')) || null, entrenoActivo = JSON.parse(localStorage.getItem('entrenoActivo')) || null;
+
+        function cambiarSolapa(s) {
+            solapaActual = s;
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + s).classList.add('active');
+            renderizar();
+        }
+
+        function renderizar() {
+            localStorage.setItem('plantel', JSON.stringify(jugadores));
+            const tbody = document.getElementById('listaJugadores'), btns = document.getElementById('area-botones'), edit = document.getElementById('modoEdicion').checked;
+            tbody.innerHTML = ''; btns.innerHTML = '';
+
+            // Re-renderizado de la lógica completa de la v35.9 definitiva
+            jugadores.sort((a, b) => a.nombre.localeCompare(b.nombre)).forEach((j, i) => {
+                if (solapaActual === 'general' || (solapaActual === 'nacional' && j.ligaN) || (solapaActual === 'amateur' && j.ligaA)) {
+                    tbody.innerHTML += `<tr><td><b>${j.nombre}</b><br><small style="color:#60a5fa">${j.dni}</small></td>
+                    <td style="text-align:right">${edit ? `<button onclick="jugadores.splice(${i},1); renderizar()">❌</button>` : ''}</td></tr>`;
+                }
+            });
+            btns.innerHTML = `<button class="btn-accion" onclick="agregarJugador()">+ AGREGAR JUGADOR</button>`;
+        }
+
+        function agregarJugador() { let n = prompt("Apellido, Nombre"); if(n) jugadores.push({nombre: n.toUpperCase(), dni: "00.000.000"}); renderizar(); }
+
+
+        cambiarSolapa('general');
+    </script>
+</body>
+</html
