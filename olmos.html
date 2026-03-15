@@ -2,71 +2,127 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Unidos de Olmos v35.9 - Definitiva</title>
-    <style>
-        body { background-color: #1e3a8a; color: white; font-family: sans-serif; margin: 0; padding-bottom: 80px; }
-        header { background-color: #172554; padding: 15px; border-bottom: 2px solid #1e40af; display: flex; justify-content: space-between; align-items: center; }
-        nav { display: flex; background-color: #172554; border-bottom: 2px solid #1e40af; overflow-x: auto; }
-        nav button { flex: 1; padding: 12px; border: none; background: none; color: #94a3b8; font-weight: bold; cursor: pointer; white-space: nowrap; }
-        nav button.active { color: white; border-bottom: 4px solid #dc2626; }
-        .cont { padding: 15px; }
-        .box { background-color: #172554; border-radius: 12px; overflow: hidden; border: 1px solid #1e40af; }
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 12px; border-bottom: 1px solid #1e40af; }
-        .btn { width: 100%; padding: 15px; margin-top: 10px; border-radius: 10px; border: none; font-weight: bold; color: white; cursor: pointer; }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
-<body>
+<body class="bg-blue-900 text-gray-100 min-h-screen pb-20">
 
-    <header>
-        <h1>v35.9</h1>
-        <label>Edición: <input type="checkbox" id="modoEdicion" onchange="renderizar()"></label>
+    <header class="bg-blue-950 p-4 border-b border-blue-800 shadow-xl flex justify-between items-center">
+        <h1 class="text-xl font-bold uppercase tracking-widest">v35.9</h1>
+        <label class="flex items-center space-x-2 text-xs">
+            <span>Edición:</span>
+            <input type="checkbox" id="modoEdicion" onchange="renderizar()" class="w-5 h-5 accent-red-600">
+        </label>
     </header>
 
-    <nav>
-        <button onclick="cambiarSolapa('general')" id="btn-general" class="active">General</button>
-        <button onclick="cambiarSolapa('nacional')" id="btn-nacional">Nacional</button>
-        <button onclick="cambiarSolapa('amateur')" id="btn-amateur">Amateur</button>
-        <button onclick="cambiarSolapa('cuotas')" id="btn-cuotas">Cuotas</button>
+    <nav class="flex bg-blue-950 border-b border-blue-800 overflow-x-auto">
+        <button onclick="cambiarSolapa('general')" class="flex-1 py-3 px-4 font-bold" id="btn-general">General</button>
+        <button onclick="cambiarSolapa('nacional')" class="flex-1 py-3 px-4" id="btn-nacional">Nacional</button>
+        <button onclick="cambiarSolapa('amateur')" class="flex-1 py-3 px-4" id="btn-amateur">Amateur</button>
+        <button onclick="cambiarSolapa('cuotas')" class="flex-1 py-3 px-4" id="btn-cuotas">Cuotas</button>
+        <button onclick="cambiarSolapa('entreno')" class="flex-1 py-3 px-4" id="btn-entreno">Entreno</button>
     </nav>
 
-    <main class="cont">
-        <div class="box"><table id="listaJugadores"></table></div>
-        <div id="area-botones"></div>
+    <main class="p-4">
+        <div class="bg-blue-950 rounded-xl overflow-hidden border border-blue-800 shadow-2xl">
+            <table class="w-full text-sm"><tbody id="listaJugadores" class="divide-y divide-blue-800"></tbody></table>
+        </div>
+        <div class="mt-6 flex flex-col gap-2" id="area-botones"></div>
     </main>
 
     <script>
-        let solapaActual = 'general', jugadores = JSON.parse(localStorage.getItem('plantel')) || [];
-        
+        let solapaActual = 'general', jugadores = JSON.parse(localStorage.getItem('plantel')) || [], eventoActivo = JSON.parse(localStorage.getItem('eventoActivo')) || null, entrenoActivo = JSON.parse(localStorage.getItem('entrenoActivo')) || null, jugadorAbierto = null;
+        const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
         function cambiarSolapa(s) {
             solapaActual = s;
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-            document.getElementById('btn-' + s).classList.add('active');
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('border-b-4', 'border-red-600', 'font-bold', 'text-white'));
+            document.getElementById('btn-' + s).classList.add('border-b-4', 'border-red-600', 'font-bold', 'text-white');
             renderizar();
         }
+
+        function formatearDNI(v) { return v.replace(/\D/g, '').replace(/(\d{2})(\d{3})(\d{3})/, '$1.$2.$3'); }
+        function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); }
 
         function renderizar() {
             localStorage.setItem('plantel', JSON.stringify(jugadores));
             const tbody = document.getElementById('listaJugadores'), btns = document.getElementById('area-botones'), edit = document.getElementById('modoEdicion').checked;
             tbody.innerHTML = ''; btns.innerHTML = '';
-            
-            jugadores.sort((a, b) => a.nombre.localeCompare(b.nombre)).forEach((j, i) => {
-                if (solapaActual === 'general' || (solapaActual === 'nacional' && j.ligaN) || (solapaActual === 'amateur' && j.ligaA)) {
-                    tbody.innerHTML += `<tr><td><b>${j.nombre}</b><br><small style="color:#60a5fa">${j.dni}</small></td>
-                    <td style="text-align:right">
-                        ${solapaActual === 'general' ? `<input type="checkbox" ${j.ligaN?'checked':''} ${edit?'':'disabled'} onchange="jugadores[${i}].ligaN=this.checked; renderizar()"> N <input type="checkbox" ${j.ligaA?'checked':''} ${edit?'':'disabled'} onchange="jugadores[${i}].ligaA=this.checked; renderizar()"> A` : ''}
-                        ${edit ? `<button onclick="jugadores.splice(${i},1); renderizar()">❌</button>` : ''}
-                    </td></tr>`;
-                }
-            });
-            btns.innerHTML = `<button class="btn" style="background:#2563eb" onclick="agregar()">+ AGREGAR JUGADOR</button>`;
+            let plantelOrdenado = [...jugadores].sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+            if (eventoActivo && eventoActivo.liga === solapaActual) {
+                btns.innerHTML = `<button onclick="finalizarEvento()" class="bg-red-700 w-full p-4 rounded-xl font-bold uppercase">Cerrar Evento y Enviar Pagos</button>`;
+                plantelOrdenado.filter(j => eventoActivo.asistencia.hasOwnProperty(j.nombre)).forEach(j => {
+                    tbody.innerHTML += `<tr class="border-b border-blue-800"><td class="p-4 font-bold">${j.nombre}</td><td class="p-4 text-right"><button onclick="eventoActivo.asistencia['${j.nombre}'] = eventoActivo.asistencia['${j.nombre}'] === '✅' ? '💸' : '✅'; renderizar()" class="font-bold ${eventoActivo.asistencia[j.nombre] === '✅' ? 'text-green-400' : 'text-orange-400'}">${eventoActivo.asistencia[j.nombre]}</button></td></tr>`;
+                });
+            } else if (entrenoActivo) {
+                btns.innerHTML = `<button onclick="finalizarEntreno()" class="bg-green-700 w-full p-4 rounded-xl font-bold">Finalizar Entrenamiento</button>`;
+                plantelOrdenado.forEach(j => { let e = entrenoActivo[j.nombre] || '❌'; tbody.innerHTML += `<tr class="border-b border-blue-800"><td class="p-4">${j.nombre}</td><td class="p-4 text-right"><button onclick="entrenoActivo['${j.nombre}']='${e==='✅'?'❌':'✅'}'; renderizar()" class="font-bold ${e==='✅'?'text-green-400':'text-red-500'}">${e}</button></td></tr>`; });
+            } else if (solapaActual === 'general') {
+                plantelOrdenado.forEach((j) => {
+                    let i = jugadores.findIndex(p => p.nombre === j.nombre);
+                    let [ape, nom] = j.nombre.split(', ');
+                    tbody.innerHTML += `<tr><td class="p-3">${edit?`<button onclick="if(confirm('¿Eliminar?')) {jugadores.splice(${i},1); renderizar()}" class="text-red-500 mr-2">❌</button>`:''}<b class="uppercase">${ape}</b>, <span class="capitalize">${nom}</span><br>${edit?`<input value="${j.dni}" onchange="jugadores[${i}].dni=formatearDNI(this.value); renderizar()" class="bg-blue-950 text-blue-400 text-xs w-full">`:`<span class="text-blue-300 text-xs">${j.dni}</span>`}</td><td class="p-3 text-right"><input type="checkbox" ${j.ligaN?'checked':''} ${edit?'':'disabled'} onchange="jugadores[${i}].ligaN=this.checked; renderizar()"> N <input type="checkbox" ${j.ligaA?'checked':''} ${edit?'':'disabled'} onchange="jugadores[${i}].ligaA=this.checked; renderizar()"> A</td></tr>`;
+                });
+                btns.innerHTML = `<button onclick="agregarJugador()" class="bg-blue-700 w-full p-4 rounded-xl font-bold">+ AGREGAR JUGADOR</button><button onclick="exportarPDF()" class="bg-blue-500 w-full p-4 rounded-xl font-bold">EXPORTAR PDF</button>`;
+            } else if (solapaActual === 'cuotas') {
+                plantelOrdenado.forEach((j) => {
+                    let i = jugadores.findIndex(p => p.nombre === j.nombre);
+                    if(!j.cuotas) j.cuotas = {};
+                    tbody.innerHTML += `<tr class="border-b border-blue-800"><td class="p-4"><div onclick="jugadorAbierto=jugadorAbierto===${i}?null:${i}; renderizar()" class="font-bold">${j.nombre}</div>${jugadorAbierto===i ? `<div class="grid grid-cols-4 gap-1 mt-2">${meses.map(m => `<button onclick="marcarMes(${i}, '${m}')" class="py-1 text-[9px] rounded ${j.cuotas[m]?'bg-green-600':'bg-red-700'}">${m}</button>`).join('')}</div>`:''}</td></tr>`;
+                });
+                btns.innerHTML = `<button onclick="enviarReporteCuotas()" class="bg-yellow-600 w-full p-4 rounded-xl font-bold text-blue-950 uppercase shadow-lg">Enviar Reporte Semanal</button>`;
+            } else if (solapaActual === 'entreno') {
+                plantelOrdenado.forEach(j => tbody.innerHTML += `<tr class="border-b border-blue-800"><td class="p-4 font-bold">${j.nombre}</td></tr>`);
+                btns.innerHTML = `<button onclick="iniciarNuevoEntreno()" class="bg-blue-700 w-full p-4 rounded-xl font-bold">Nuevo Entrenamiento</button>`;
+            } else {
+                let filtrados = plantelOrdenado.filter(j => solapaActual === 'nacional' ? j.ligaN : j.ligaA);
+                filtrados.forEach(j => {
+                    let h = j.historial || [];
+                    let v = h.filter(x=>x==='✅').length, r = h.filter(x=>x==='❌').length;
+                    let ultimos5 = h.slice(-5);
+                    while(ultimos5.length < 5) ultimos5.unshift('⚪');
+                    let casillas = ultimos5.map(x => `<span class="inline-block w-3 h-3 rounded-sm mx-0.5 ${x==='✅'?'bg-green-500':(x==='❌'?'bg-red-500':'bg-gray-700')}"></span>`).join('');
+                    tbody.innerHTML += `<tr class="border-b border-blue-800"><td class="p-4 font-bold">${j.nombre}<br><div class="flex mt-1">${casillas}</div></td><td class="p-4 text-right text-xs"><span class="text-green-500">${v}</span> / <span class="text-red-500">${r}</span></td></tr>`;
+                });
+                btns.innerHTML = `<button onclick="iniciarCitacion()" class="bg-red-700 w-full p-4 rounded-xl font-bold">Nueva Citación</button><button onclick="exportarPDF()" class="bg-blue-500 w-full p-4 rounded-xl font-bold">EXPORTAR PDF</button>`;
+            }
         }
 
-        function agregar() { 
-            let a = prompt("Apellido"), n = prompt("Nombre"), d = prompt("DNI"); 
-            if(a && n) jugadores.push({nombre: `${a.toUpperCase()}, ${n}`, dni: d || "00.000.000", ligaN: false, ligaA: false}); 
-            renderizar(); 
+        async function exportarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(16); doc.text(`LISTADO DE JUGADORES - ${solapaActual.toUpperCase()}`, 10, 10);
+            let y = 20;
+            let lista = [...jugadores].sort((a,b) => a.nombre.localeCompare(b.nombre));
+            if(solapaActual !== 'general') lista = lista.filter(j => solapaActual === 'nacional' ? j.ligaN : j.ligaA);
+            lista.forEach((j, idx) => {
+                doc.setFontSize(12);
+                doc.text(`${idx + 1}. ${j.nombre} - DNI: ${j.dni}`, 10, y);
+                y += 10;
+                if(y > 280) { doc.addPage(); y = 20; }
+            });
+            doc.save(`Unidos_de_Olmos_${solapaActual}.pdf`);
         }
+
+        function marcarMes(i, m) { jugadores[i].cuotas[m] = !jugadores[i].cuotas[m]; renderizar(); }
+        function enviarReporteCuotas() {
+            let mActualIdx = new Date().getMonth();
+            let msg = `*RESUMEN CUOTAS (Hasta ${meses[mActualIdx]})*\n\n`;
+            [...jugadores].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(j => {
+                let pendientes = [];
+                for(let i=0; i<=mActualIdx; i++) if(!j.cuotas[meses[i]]) pendientes.push(meses[i]);
+                msg += (pendientes.length > 0) ? `🔴 ${j.nombre}: ${pendientes.join(', ')}\n` : `✅ ${j.nombre}\n`;
+            });
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+        }
+        function agregarJugador() { let a=prompt("Apellido"), n=prompt("Nombre"), d=prompt("DNI"); if(a&&n) jugadores.push({nombre:`${a.toUpperCase()}, ${cap(n)}`, dni:formatearDNI(d||""), ligaN:false, ligaA:false, cuotas:{}, historial:[]}); renderizar(); }
+        function iniciarCitacion() { eventoActivo={liga:solapaActual, asistencia:{}}; jugadores.filter(j=>solapaActual==='nacional'?j.ligaN:j.ligaA).forEach(j=>eventoActivo.asistencia[j.nombre]='💸'); renderizar(); }
+        function iniciarNuevoEntreno() { let f=prompt("Fecha/Hora"), l=prompt("Lugar"); if(f&&l){ entrenoActivo={}; jugadores.forEach(j=>entrenoActivo[j.nombre]='❌'); window.open(`https://wa.me/?text=${encodeURIComponent(`*ENTRENAMIENTO*\n📅 ${f}\n📍 ${l}`)}`); renderizar(); } }
+        function finalizarEntreno() { jugadores.forEach(j=>{ if(!j.historial) j.historial=[]; j.historial.push(entrenoActivo[j.nombre]||'❌'); }); entrenoActivo=null; renderizar(); }
+        function finalizarEvento() { let m="*RESUMEN PAGOS:*\n"; for(let n in eventoActivo.asistencia) m+=`${eventoActivo.asistencia[n]} | ${n}\n`; window.open(`https://wa.me/?text=${encodeURIComponent(m)}`); eventoActivo=null; renderizar(); }
 
         cambiarSolapa('general');
     </script>
