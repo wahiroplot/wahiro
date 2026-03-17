@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unidos de Olmos v35.9 - Cloud</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+</head>
+<body class="bg-blue-900 text-gray-100 min-h-screen pb-20">
+
+    <header class="bg-blue-950 p-4 border-b border-blue-800 shadow-xl flex justify-between items-center">
+        <h1 class="text-xl font-bold uppercase tracking-widest">v35.9 CLOUD</h1>
+        <label class="flex items-center space-x-2 text-xs">
+            <span>Edición:</span>
+            <input type="checkbox" id="modoEdicion" onchange="renderizar()" class="w-5 h-5 accent-red-600">
+        </label>
+    </header>
+
+    <nav class="flex bg-blue-950 border-b border-blue-800 overflow-x-auto">
+        <button onclick="cambiarSolapa('general')" class="flex-1 py-3 px-4 font-bold" id="btn-general">General</button>
+        <button onclick="cambiarSolapa('nacional')" class="flex-1 py-3 px-4" id="btn-nacional">Nacional</button>
+        <button onclick="cambiarSolapa('amateur')" class="flex-1 py-3 px-4" id="btn-amateur">Amateur</button>
+        <button onclick="cambiarSolapa('cuotas')" class="flex-1 py-3 px-4" id="btn-cuotas">Cuotas</button>
+        <button onclick="cambiarSolapa('entreno')" class="flex-1 py-3 px-4" id="btn-entreno">Entreno</button>
+    </nav>
+
+    <main class="p-4">
+        <div id="modalCitacion" class="hidden fixed inset-0 bg-blue-950 z-50 p-4 overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4">Seleccionar Citados (<span id="cont">0</span>/18)</h2>
+            <div id="listaSeleccion" class="space-y-2 mb-20"></div>
+            <button onclick="confirmarCitacion()" class="fixed bottom-4 left-4 right-4 bg-green-600 p-4 rounded-xl font-bold">CONFIRMAR Y ENVIAR</button>
+        </div>
+        <div class="bg-blue-950 rounded-xl overflow-hidden border border-blue-800 shadow-2xl">
+            <table class="w-full text-sm"><tbody id="listaJugadores" class="divide-y divide-blue-800"></tbody></table>
+        </div>
+        <div class="mt-6 flex flex-col gap-2" id="area-botones"></div>
+    </main>
+
+    <script>
+        // CONFIGURACIÓN DE FIREBASE ACTUALIZADA
+        const firebaseConfig = {
+            apiKey: "AIzaSyARZQ9cpI02xtDF0CjzQdoevGYjsPb4Esw",
+            authDomain: "unidos-gestion.firebaseapp.com",
+            databaseURL: "https://unidos-gestion-default-rtdb.firebaseio.com",
+            projectId: "unidos-gestion",
+            storageBucket: "unidos-gestion.firebasestorage.app",
+            messagingSenderId: "1007283902621",
+            appId: "1:1007283902621:web:7a7cafbb5e6e5df3b1dc74",
+            measurementId: "G-KS70Y0FCQT"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let solapaActual = 'general', jugadores = [], eventoActivo = null, entrenoActivo = null, jugadorAbierto = null;
+        const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+        // SINCRONIZACIÓN EN TIEMPO REAL CON LA NUBE
+        db.ref('datos').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                jugadores = data.plantel || [];
+                eventoActivo = data.eventoActivo || null;
+                entrenoActivo = data.entrenoActivo || null;
+                renderizar();
+            }
+        });
+
+        function guardarDatos() {
+            db.ref('datos').set({
+                plantel: jugadores,
+                eventoActivo: eventoActivo,
+                entrenoActivo: entrenoActivo
+            });
+        }
+
+        function cambiarSolapa(s) {
+            solapaActual = s;
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('border-b-4', 'border-red-600', 'font-bold', 'text-white'));
+            document.getElementById('btn-' + s).classList.add('border-b-4', 'border-red-600', 'font-bold', 'text-white');
+            renderizar();
+        }
+
+        function formatearDNI(v) { return v.replace(/\D/g, '').replace(/(\d{2})(\d{3})(\d{3})/, '$1.$2.$3'); }
+        function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); }
+
+        function renderizar() {
+            const tbody = document.getElementById('listaJugadores'), btns = document.getElementById('area-botones'), edit = document.getElementById('modoEdicion').checked;
+            tbody.innerHTML = ''; btns.innerHTML = '';
+            let plantelOrdenado = [...jugadores].sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+            if (eventoActivo && eventoActivo.liga === solapaActual) {
+                btns.innerHTML = `<button onclick="finalizarEvento()" class="bg-red-700 w-full p-4 rounded-xl font-bold uppercase">Cerrar Evento y Enviar Pagos</button>`;
+                plantelOrdenado.filter(j => eventoActivo.asistencia.hasOwnProperty(j.nombre)).forEach(j => {
+                    tbody.innerHTML += `<tr class="border-b border-blue-800"><td class="p-4 font-bold">${j.nombre}</td><td class="p-4 text-right"><button onclick="eventoActivo.asistencia['${j.nombre}'] = eventoActivo.asistencia['${j.nombre}'] === '✅' ? '💸' : '✅'; guardarDatos()" class="font-bold ${eventoActivo.asistencia[j.nombre] === '✅' ? 'text-green-400' : 'text-orange-400'}">${eventoActivo.asistencia[j.nombre]}</button></td></tr>`;
+                });
+            } else if (entrenoActivo) {
+                btns.innerHTML = `<button onclick="finalizarEntreno()" class="bg-green-700 w-full p-4 rounded-xl font-bold">Finalizar Entrenamiento</button>`;
+                plantelOrdenado.forEach(j => { 
+                    let e = entrenoActivo[j.nombre] || '❌'; 
+                    tbody.innerHTML += `<tr class="border-b border-blue-800"><td class="p-4">${j.nombre}</td><td class="p-4 text-right"><button onclick="entrenoActivo['${j.nombre}']='${e==='✅'?'❌':'✅'}'; renderizar()" class="font-bold ${e==='✅'?'text-green-400':'text-red-500'}">${e}</button></td></tr>`; 
+                });
+            } else if (solapaActual === 'general') {
+                plantelOrdenado.forEach((j) => {
+                    let i = jugadores.findIndex(p => p.nombre === j.nombre);
+                    let [ape, nom] = j.nombre.split(', ');
+                    tbody.innerHTML += `<tr><td class="p-3">${edit?`<button onclick="if(confirm('¿Eliminar?')) {jugadores.splice(${i},1); guardarDatos()}" class="text-red-500 mr-2">❌</button>`:''}<b class="uppercase">${ape}</b>, <span class="capitalize">${nom}</span><br>${edit?`<input value="${j.dni}" onchange="jugadores[${i}].dni=formatearDNI(this.value); guardarDatos()" class="bg-blue-950 text-blue-400 text-xs w-full">`:`<span class="text-blue-300 text-xs">${j.dni}</span>`}</td><td class="p-3 text-right"><input type="checkbox" ${j.ligaN?'checked':''} ${edit?'':'disabled'} onchange="jugadores[${i}].ligaN=this.checked; guardarDatos()"> N <input type="checkbox" ${j.ligaA?'checked':''} ${edit?'':'disabled'} onchange="jugadores[${i}].ligaA=this.checked; guardarDatos()"> A</td></tr>`;
+                });
+                btns.innerHTML = `<button onclick="agregarJugador()" class="bg-blue-700 w-full p-4 rounded-xl font-bold">+ AGREGAR JUGADOR</button><button onclick="exportarPDF()" class="bg-blue-500 w-full p-4 rounded-xl font-bold">EXPORTAR PDF</button>`;
+            } else if (solapaActual === 'cuotas') {
+                plantelOrdenado.forEach((j) => {
+                    let i = jugadores.findIndex(p => p.nombre === j.nombre);
+                    if(!j.cuotas) j.cuotas = {};
+                    tbody.innerHTML += `<tr class="border-b border-blue-800"><td class="p-4"><div onclick="jugadorAbierto=jugadorAbierto===${i}?null:${i}; renderizar()" class="font-bold">${j.nombre}</div>${jugadorAbierto===i ? `<div class="grid grid-cols-4 gap-1 mt-2">${meses.map(m => `<button onclick="marcarMes(${i}, '${m}')" class="py-1 text-[9px] rounded ${j.cuotas[m]?'bg-green-600':'bg-red-700'}">${m}</button>`).join('')}</div>`:''}</td></tr>`;
+                });
+                btns.innerHTML = `<button onclick="enviarReporteCuotas()" class="bg-yellow-600 w-full p-4 rounded-xl font-bold text-blue-950 uppercase shadow-lg">Enviar Reporte Semanal</button>`;
+            } else if (solapaActual === 'entreno') {
+                plantelOrdenado.forEach(j => tbody.innerHTML += `<tr class="border-b border-blue-800"><td class="p-4 font-bold">${j.nombre}</td></tr>`);
+                btns.innerHTML = `<button onclick="iniciarNuevoEntreno()" class="bg-blue-700 w-full p-4 rounded-xl font-bold">Nuevo Entrenamiento</button>`;
+            } else {
+                let filtrados = plantelOrdenado.filter(j => solapaActual === 'nacional' ? j.ligaN : j.ligaA);
+                filtrados.forEach(j => {
+                    let h = j.historial || [];
+                    let v = h.filter(x=>x==='✅').length, r = h.filter(x=>x==='❌').length;
+                    let ultimos5 = h.slice(-5);
+                    while(ultimos5.length < 5) ultimos5.unshift('⚪');
+                    let casillas = ultimos5.map(x => `<span class="inline-block w-3 h-3 rounded-sm mx-0.5 ${x==='✅'?'bg-green-500':(x==='❌'?'bg-red-500':'bg-gray-700')}"></span>`).join('');
+                    tbody.innerHTML += `<tr class="border-b border-blue-800"><td class="p-4 font-bold">${j.nombre}<br><div class="flex mt-1">${casillas}</div></td><td class="p-4 text-right text-xs"><span class="text-green-500">${v}</span> / <span class="text-red-500">${r}</span></td></tr>`;
+                });
+                btns.innerHTML = `<button onclick="iniciarCitacion()" class="bg-red-700 w-full p-4 rounded-xl font-bold">Nueva Citación</button><button onclick="exportarPDF()" class="bg-blue-500 w-full p-4 rounded-xl font-bold">EXPORTAR PDF</button>`;
+            }
+        }
+
+        async function exportarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(16); doc.text(`LISTADO - ${solapaActual.toUpperCase()}`, 10, 10);
+            let y = 20;
+            let lista = [...jugadores].sort((a,b) => a.nombre.localeCompare(b.nombre));
+            if(solapaActual !== 'general') lista = lista.filter(j => solapaActual === 'nacional' ? j.ligaN : j.ligaA);
+            lista.forEach((j, idx) => {
+                doc.setFontSize(12);
+                doc.text(`${idx + 1}. ${j.nombre} - DNI: ${j.dni}`, 10, y);
+                y += 10;
+                if(y > 280) { doc.addPage(); y = 20; }
+            });
+            doc.save(`Unidos_de_Olmos_${solapaActual}.pdf`);
+        }
+
+        function iniciarCitacion() {
+            const modal = document.getElementById('modalCitacion'), lista = document.getElementById('listaSeleccion');
+            const elegibles = jugadores.filter(j => solapaActual === 'nacional' ? j.ligaN : j.ligaA);
+            lista.innerHTML = '';
+            elegibles.forEach(j => {
+                lista.innerHTML += `<label class="flex items-center p-3 bg-blue-900 rounded-lg"><input type="checkbox" class="w-6 h-6 mr-3 selector" value="${j.nombre}" onchange="actualizarContador()"> ${j.nombre}</label>`;
+            });
+            modal.classList.remove('hidden');
+        }
+
+        function actualizarContador() {
+            const checked = document.querySelectorAll('.selector:checked');
+            if (checked.length > 18) { event.target.checked = false; alert("Máximo 18 jugadores"); return; }
+            document.getElementById('cont').innerText = checked.length;
+        }
+
+        function confirmarCitacion() {
+            const seleccionados = Array.from(document.querySelectorAll('.selector:checked')).map(cb => cb.value);
+            if(seleccionados.length === 0) return;
+            eventoActivo = {liga: solapaActual, asistencia: {}};
+            seleccionados.forEach(n => eventoActivo.asistencia[n] = '💸');
+            let msg = `*CITACIÓN ${solapaActual.toUpperCase()}*\n` + seleccionados.join('\n');
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+            document.getElementById('modalCitacion').classList.add('hidden');
+            guardarDatos();
+        }
+
+        function finalizarEvento() {
+            let m = "*RESUMEN PAGOS:*\n";
+            for(let n in eventoActivo.asistencia) {
+                let esPago = eventoActivo.asistencia[n] === '✅';
+                m += `${esPago ? '✅ PAGÓ' : '❌ DEBE'} | ${n}\n`;
+            }
+            window.open(`https://wa.me/?text=${encodeURIComponent(m)}`);
+            eventoActivo = null;
+            guardarDatos();
+        }
+
+        function agregarJugador() { 
+            let a = prompt("Apellido"), n = prompt("Nombre"), d = prompt("DNI"); 
+            if(a && n) jugadores.push({nombre:`${a.toUpperCase()}, ${cap(n)}`, dni:formatearDNI(d||""), ligaN:false, ligaA:false, cuotas:{}, historial:[]}); 
+            guardarDatos(); 
+        }
+
+        function marcarMes(i, m) { jugadores[i].cuotas[m] = !jugadores[i].cuotas[m]; guardarDatos(); }
+
+        function enviarReporteCuotas() {
+            let mActualIdx = new Date().getMonth();
+            let msg = `*RESUMEN CUOTAS (Hasta ${meses[mActualIdx]})*\n\n`;
+            [...jugadores].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(j => {
+                let pendientes = [];
+                for(let i=0; i<=mActualIdx; i++) if(!j.cuotas[meses[i]]) pendientes.push(meses[i]);
+                msg += (pendientes.length > 0) ? `🔴 ${j.nombre}: ${pendientes.join(', ')}\n` : `✅ ${j.nombre}\n`;
+            });
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+        }
+
+        function iniciarNuevoEntreno() { 
+            let f=prompt("Fecha/Hora"), l=prompt("Lugar"); 
+            if(f&&l){ 
+                entrenoActivo={}; 
+                jugadores.forEach(j=>entrenoActivo[j.nombre]='❌'); 
+                window.open(`https://wa.me/?text=${encodeURIComponent(`*ENTRENAMIENTO*\n📅 ${f}\n📍 ${l}`)}`); 
+                guardarDatos(); 
+            } 
+        }
+
+        function finalizarEntreno() { 
+            jugadores.forEach(j=>{ 
+                if(!j.historial) j.historial=[]; 
+                j.historial.push(entrenoActivo[j.nombre]||'❌'); 
+            }); 
+            entrenoActivo=null; 
+            guardarDatos(); 
+        }
+
+        cambiarSolapa('general');
+    </script>
+</body>
+</html>
